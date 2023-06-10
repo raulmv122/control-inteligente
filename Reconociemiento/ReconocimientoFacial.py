@@ -159,7 +159,7 @@ class VentanaRegistro(tk.Toplevel):
             else:
                 print("Error: No se ha detectado ninguna cara en la imagen")
         else:
-            print("Error al leer la imagen capturada")
+            print("Error: No se pudo leer la imagen capturada")
 
         # Eliminar la imagen capturada
         os.remove("imagen_capturada.jpg")
@@ -167,24 +167,93 @@ class VentanaRegistro(tk.Toplevel):
         # Cerrar la ventana de registro
         self.destroy()
 
+class VentanaIniciarSesion(tk.Toplevel):
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.title("Iniciar sesión")
+
+        # Obtener las dimensiones y posición de la ventana principal
+        ancho_ventana = parent.winfo_width()
+        alto_ventana = parent.winfo_height()
+        x_ventana = parent.winfo_x()
+        y_ventana = parent.winfo_y()
+
+        # Establecer las dimensiones y la posición de la ventana de inicio de sesión
+        self.geometry(f"{ancho_ventana}x{alto_ventana}+{x_ventana}+{y_ventana}")
+
+        # Establecer estilo para la ventana de inicio de sesión
+        estilo = ttk.Style()
+        estilo.configure("TLabel", font=tkfont.Font(family="Helvetica", size=12), background="#CCCCCC", foreground="#000000")
+
+        # Etiqueta y entrada para el nombre de usuario
+        lbl_usuario = ttk.Label(self, text="Nombre de usuario:")
+        lbl_usuario.pack()
+
+        self.entry_usuario = ttk.Entry(self)
+        self.entry_usuario.pack()
+
+        # Botón para iniciar sesión
+        btn_iniciar_sesion = ttk.Button(self, text="Iniciar sesión", command=self.iniciar_sesion, width=20)
+        btn_iniciar_sesion.pack(pady=10)
+
+    def iniciar_sesion(self):
+        # Obtener el nombre de usuario ingresado
+        nombre_usuario = self.entry_usuario.get()
+
+        # Conectar a la base de datos
+        conexion = mysql.connector.connect(
+            host="localhost",
+            port=3306,
+            user="root",
+            password="sasa",
+            database="control_citas"
+        )
+
+        # Crear un objeto cursor
+        cursor = conexion.cursor()
+
+        try:
+            # Verificar si existe un usuario con el nombre ingresado en la tabla "empleado"
+            consulta = "SELECT * FROM `empleado` WHERE `nombre` = %s"
+            valores = (nombre_usuario,)
+            cursor.execute(consulta, valores)
+
+            resultado = cursor.fetchone()
+
+            if resultado is not None:
+                print("Inicio de sesión exitoso")
+            else:
+                print("Error: Usuario no encontrado")
+
+        except mysql.connector.Error as error:
+            print(f"Error al iniciar sesión: {error}")
+
+        finally:
+            # Cerrar el cursor y la conexión a la base de datos
+            cursor.close()
+            conexion.close()
+
+        # Cerrar la ventana de inicio de sesión
+        self.destroy()
+
 def detectar_caras(imagen):
-    # Cargar el archivo XML con el clasificador de Haar
-    cascada_cara = cv2.CascadeClassifier("haarcascade_frontalface_default.xml")
-
     # Convertir la imagen a escala de grises
-    gris = cv2.cvtColor(imagen, cv2.COLOR_BGR2GRAY)
+    imagen_gris = cv2.cvtColor(imagen, cv2.COLOR_BGR2GRAY)
 
-    # Detectar las caras en la imagen
-    caras = cascada_cara.detectMultiScale(gris, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
+    # Crear un clasificador de caras
+    clasificador = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
+
+    # Detectar caras en la imagen
+    caras = clasificador.detectMultiScale(imagen_gris, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
 
     return caras
 
 def recortar_cara(cara, imagen):
-    # Extraer las coordenadas de la cara
+    # Obtener las coordenadas de la cara
     x, y, w, h = cara
 
     # Recortar la cara de la imagen original
-    cara_recortada = imagen[y:y+h, x:x+w]
+    cara_recortada = imagen[y:y + h, x:x + w]
 
     return cara_recortada
 
