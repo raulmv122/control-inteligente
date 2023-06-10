@@ -26,12 +26,13 @@ class VentanaPrincipal(tk.Tk):
 
         # Crear los botones
         estilo_botones = ttk.Style()
-        estilo_botones.configure("TButton", font=tkfont.Font(family="Helvetica", size=14), background="#CCCCCC", foreground="#000000")
+        estilo_botones.configure("TButton", font=tkfont.Font(family="Helvetica", size=14), background="#CCCCCC",
+                                 foreground="#000000")
         estilo_botones.map("TButton",
                            background=[("active", "#AAAAAA")],
                            foreground=[("active", "#FFFFFF")])
 
-        btn_iniciar_sesion = ttk.Button(self, text="Iniciar sesión", command=self.iniciar_sesion, width=20)
+        btn_iniciar_sesion = ttk.Button(self, text="Iniciar sesión", command=self.abrir_ventana_iniciar_sesion, width=20)
         btn_iniciar_sesion.pack(pady=50)
         btn_iniciar_sesion.place(relx=0.5, rely=0.5, anchor="center")
 
@@ -39,9 +40,10 @@ class VentanaPrincipal(tk.Tk):
         btn_registrarse.pack(pady=20)
         btn_registrarse.place(relx=0.5, rely=0.6, anchor="center")
 
-    def iniciar_sesion(self):
-        # Aquí puedes agregar el código para la funcionalidad del botón "Iniciar sesión"
-        pass
+    def abrir_ventana_iniciar_sesion(self):
+        ventana_iniciar_sesion = VentanaIniciarSesion(self)
+        ventana_iniciar_sesion.geometry(f"{self.winfo_width()}x{self.winfo_height()}+{self.winfo_x()}+{self.winfo_y()}")
+        ventana_iniciar_sesion.mainloop()
 
     def abrir_ventana_registro(self):
         ventana_registro = VentanaRegistro(self)
@@ -74,7 +76,7 @@ class VentanaRegistro(tk.Toplevel):
         self.entry_usuario.pack()
 
         # Botón para agregar imagen del usuario
-        btn_agregar_imagen = ttk.Button(self, text="Agregar imagen del usuario", command=self.capturar_imagen, width=20)
+        btn_agregar_imagen = ttk.Button(self, text="Agregar imagen", command=self.capturar_imagen, width=20)
         btn_agregar_imagen.pack(pady=10)
 
     def capturar_imagen(self):
@@ -108,42 +110,83 @@ class VentanaRegistro(tk.Toplevel):
         # Leer la imagen capturada
         imagen_capturada = cv2.imread("imagen_capturada.jpg")
 
-        # Conectar a la base de datos
-        conexion = mysql.connector.connect(
-            host="localhost",
-            port=3306,
-            user="root",
-            password="sasa",
-            database="control_citas"
-        )
+        # Verificar si la imagen se ha leído correctamente
+        if imagen_capturada is not None:
+            # Detectar caras en la imagen
+            caras = detectar_caras(imagen_capturada)
 
-        # Crear un objeto cursor
-        cursor = conexion.cursor()
+            if len(caras) > 0:
+                # Recortar la cara más grande encontrada en la imagen
+                cara_recortada = recortar_cara(caras[0], imagen_capturada)
 
-        try:
-            # Convertir la imagen a formato de bytes
-            imagen_bytes = cv2.imencode('.jpg', imagen_capturada)[1].tobytes()
+                # Redimensionar la cara recortada a 200x200
+                cara_redimensionada = cv2.resize(cara_recortada, (200, 200))
 
-            # Insertar el usuario en la base de datos
-            consulta = "INSERT INTO `empleado` (`nombre`, `imagen`, `apellido`, `email`, `rol`, `loggeado`) VALUES (%s, %s, '', '', '', FALSE)"
-            valores = (nombre_usuario, imagen_bytes)
-            cursor.execute(consulta, valores)
+                # Guardar la imagen recortada y redimensionada en la carpeta "imagenes"
+                nombre_imagen = f"imagenes/{nombre_usuario}.jpg"
+                cv2.imwrite(nombre_imagen, cara_redimensionada)
 
-            # Confirmar los cambios
-            conexion.commit()
+                # Conectar a la base de datos
+                conexion = mysql.connector.connect(
+                    host="localhost",
+                    port=3306,
+                    user="root",
+                    password="sasa",
+                    database="control_citas"
+                )
 
-            print("Usuario registrado correctamente")
+                # Crear un objeto cursor
+                cursor = conexion.cursor()
 
-        except mysql.connector.Error as error:
-            print(f"Error al registrar el usuario: {error}")
+                try:
+                    # Insertar el usuario en la base de datos
+                    consulta = "INSERT INTO `empleado` (`nombre`, `apellido`, `email`, `rol`, `loggeado`) VALUES (%s, '', '', '', FALSE)"
+                    valores = (nombre_usuario,)
+                    cursor.execute(consulta, valores)
 
-        finally:
-            # Cerrar el cursor y la conexión a la base de datos
-            cursor.close()
-            conexion.close()
+                    # Confirmar los cambios
+                    conexion.commit()
 
-        # Eliminar la imagen capturada después de registrar al usuario
+                    print("Usuario registrado correctamente")
+
+                except mysql.connector.Error as error:
+                    print(f"Error al registrar el usuario: {error}")
+
+                finally:
+                    # Cerrar el cursor y la conexión a la base de datos
+                    cursor.close()
+                    conexion.close()
+            else:
+                print("Error: No se ha detectado ninguna cara en la imagen")
+        else:
+            print("Error al leer la imagen capturada")
+
+        # Eliminar la imagen capturada
         os.remove("imagen_capturada.jpg")
+
+        # Cerrar la ventana de registro
+        self.destroy()
+
+def detectar_caras(imagen):
+    # Cargar el archivo XML con el clasificador de Haar
+    cascada_cara = cv2.CascadeClassifier("haarcascade_frontalface_default.xml")
+
+    # Convertir la imagen a escala de grises
+    gris = cv2.cvtColor(imagen, cv2.COLOR_BGR2GRAY)
+
+    # Detectar las caras en la imagen
+    caras = cascada_cara.detectMultiScale(gris, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
+
+    return caras
+
+def recortar_cara(cara, imagen):
+    # Extraer las coordenadas de la cara
+    x, y, w, h = cara
+
+    # Recortar la cara de la imagen original
+    cara_recortada = imagen[y:y+h, x:x+w]
+
+    return cara_recortada
 
 if __name__ == "__main__":
     ventana_principal = VentanaPrincipal()
