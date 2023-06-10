@@ -111,9 +111,10 @@ class VentanaRegistro(tk.Toplevel):
         # Conectar a la base de datos
         conexion = mysql.connector.connect(
             host="localhost",
+            port=3306,
             user="root",
             password="sasa",
-            database="agency"
+            database="control_citas"
         )
 
         # Crear un objeto cursor
@@ -124,7 +125,7 @@ class VentanaRegistro(tk.Toplevel):
             imagen_bytes = cv2.imencode('.jpg', imagen_capturada)[1].tobytes()
 
             # Insertar el usuario en la base de datos
-            consulta = "INSERT INTO `user` (`name`, `photo`) VALUES (%s, %s)"
+            consulta = "INSERT INTO `empleado` (`nombre`, `imagen`, `apellido`, `email`, `rol`, `loggeado`) VALUES (%s, %s, '', '', '', FALSE)"
             valores = (nombre_usuario, imagen_bytes)
             cursor.execute(consulta, valores)
 
