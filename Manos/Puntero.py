@@ -4,7 +4,6 @@ import Mano #Clase con los movimientos de las manos
 import pyautogui,autopy #Clase para controlar el raton
 import os
 
-#Camara
 camarax = 640
 camaray = 480
 rectangulo = 100
